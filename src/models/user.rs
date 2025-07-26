@@ -19,7 +19,7 @@ impl User {
         }
     }
 
-    /// Insert user into the DB, returning the new given ID
+    /// Insert user into the DB
     pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
         let res = sqlx::query!(
             "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",

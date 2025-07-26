@@ -1,0 +1,13 @@
+-- Add migration script here
+CREATE TABLE books (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    author VARCHAR(255) NOT NULL,
+    isbn VARCHAR(20) UNIQUE NOT NULL,
+    published_year INT NOT NULL,
+    description TEXT,
+    cover_url TEXT,
+    pages INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
