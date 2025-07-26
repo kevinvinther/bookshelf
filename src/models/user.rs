@@ -82,3 +82,77 @@ impl User {
         Ok(deleted.rows_affected())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::setup_db;
+
+    #[tokio::test]
+    async fn create_then_get_and_delete() {
+        // Arrange
+        let pool = setup_db().await;
+        let mut u = User::new(
+            0,
+            "Test".to_string(),
+            "a@create.com".to_string(),
+            "pw".to_string(),
+        );
+
+        // Act
+        u.create(&pool).await.unwrap();
+        let fetched = User::get(&pool, u.id).await.unwrap();
+        let deleted_rows = u.delete(&pool).await.unwrap();
+
+        // Assert
+
+        // Asserts the db has the correct values
+        assert_eq!("a@create.com", fetched.email);
+        assert_eq!("Test", fetched.name);
+        assert_eq!("pw", fetched.password);
+
+        // Asserts the struct has the same values as the db
+        assert_eq!(u.id, fetched.id);
+        assert_eq!(u.email, fetched.email);
+        assert_eq!(u.name, fetched.name);
+        assert_eq!(u.password, fetched.password);
+
+        // Asserts that one row is deleted (i.e. the one we just set up
+        assert_eq!(1, deleted_rows)
+    }
+
+    #[tokio::test]
+    async fn update() {
+        // Arrange
+        let pool = setup_db().await;
+        let mut u = User::new(
+            0,
+            "Test".to_string(),
+            "a@update.com".to_string(),
+            "pw".to_string(),
+        );
+
+        // Act
+        u.create(&pool).await.unwrap();
+        let fetched = User::get(&pool, u.id).await.unwrap();
+
+        u.name = "New Name".to_string();
+        u.email = "b@update.dk".to_string();
+        u.password = "npw".to_string();
+
+        let updated_rows = u.update(&pool).await.unwrap();
+
+        let updated_fetch = User::get(&pool, u.id).await.unwrap();
+
+        let deleted_rows = u.delete(&pool).await.unwrap();
+
+        // Assert
+        assert_ne!(fetched.name, updated_fetch.name);
+        assert_ne!(fetched.email, updated_fetch.email);
+        assert_ne!(fetched.password, updated_fetch.password);
+        assert_eq!(fetched.id, updated_fetch.id);
+
+        assert_eq!(1, updated_rows);
+        assert_eq!(1, deleted_rows);
+    }
+}
