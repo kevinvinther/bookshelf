@@ -1,10 +1,17 @@
 DATABASE_URL := "mysql://dev:dev@localhost:3306/bookshelf"
+TEST_DATABASE_URL := "mysql://dev:dev@localhost:3306/bookshelf_test"
 
 # Drops and recreates the database
 reset-db:
     sqlx database drop --database-url {{DATABASE_URL}}
     sqlx database create --database-url {{DATABASE_URL}}
     sqlx migrate run --database-url {{DATABASE_URL}}
+    cargo sqlx prepare
+
+reset-test-db:
+    sqlx database drop --database-url {{TEST_DATABASE_URL}}
+    sqlx database create --database-url {{TEST_DATABASE_URL}}
+    sqlx migrate run --database-url {{TEST_DATABASE_URL}}
     cargo sqlx prepare
 
 # Just run migrations and prepare (if you haven't changed them)
