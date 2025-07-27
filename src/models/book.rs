@@ -1,7 +1,7 @@
 use derive_builder::Builder;
 use sqlx::MySqlPool;
 
-#[derive(Builder)]
+#[derive(Builder, PartialEq, Debug)]
 pub struct Book {
     #[builder(default = 0)]
     pub id: i64,
@@ -155,7 +155,7 @@ mod tests {
             .pages(592)
             .build()
             .unwrap();
-        
+
         // Act
         u.create(&pool).await.unwrap();
         let fetched = Book::get(&pool, u.id).await.unwrap();

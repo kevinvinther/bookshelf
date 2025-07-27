@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE user_books SET user_id = ?, book_id = ?, status = ?, rating = ?, added_at = ?, began_reading = ?, done_reading = ?, current_page = ? WHERE user_id = ? AND book_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "a1061cf2c96c13381680fddb1c958372fab698a6627a9b3977ba815974cfa8ac"
+}

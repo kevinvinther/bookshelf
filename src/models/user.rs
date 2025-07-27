@@ -1,7 +1,7 @@
 use derive_builder::Builder;
 use sqlx::MySqlPool;
 
-#[derive(Debug, Builder)]
+#[derive(Debug, Builder, PartialEq)]
 pub struct User {
     #[builder(default = 0)]
     pub id: i64,
@@ -11,7 +11,6 @@ pub struct User {
 }
 
 impl User {
-
     /// Insert user into the DB
     pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
         let res = sqlx::query!(

@@ -1,9 +1,9 @@
 use anyhow::Result;
+use bookshelf::models::user::UserBuilder;
 use bookshelf::{db::init_pool, models::user::User};
 use fake::faker::internet::en::FreeEmail;
 use fake::faker::name::en::Name;
 use fake::{Fake, Faker};
-use bookshelf::models::user::UserBuilder;
 
 mod seed;
 use seed::seed_users;
@@ -19,7 +19,6 @@ async fn main() -> Result<()> {
         .email(FreeEmail().fake())
         .password(Faker.fake())
         .build()?;
-    
 
     u.create(&pool).await?;
     u.name = "John".into();
