@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, book_id, status, rating, added_at, began_reading, done_reading, current_page FROM user_books WHERE book_id = $1 AND user_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "book_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": {
+          "Custom": {
+            "name": "reading_status",
+            "kind": {
+              "Enum": [
+                "to-read",
+                "reading",
+                "completed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "rating",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 4,
+        "name": "added_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "began_reading",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "done_reading",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "current_page",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a6ad11ba64279ab02a179a6ea25b0908297b62b3e487d48e7e83e5268a35455e"
+}

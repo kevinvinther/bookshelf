@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE books SET title = $1, author = $2, isbn = $3, published_year = $4, description = $5, cover_url = $6, pages = $7 WHERE id = $8",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Varchar",
+        "Int4",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0df4ea57b57419b89db2dba7288da66cd241b2093b8ae74b6ded8761d55338af"
+}

@@ -1,5 +1,5 @@
 use derive_builder::Builder;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 #[derive(Debug, Builder, PartialEq)]
 pub struct User {
@@ -12,25 +12,25 @@ pub struct User {
 
 impl User {
     /// Insert user into the DB
-    pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
+    pub async fn create(&mut self, pool: &PgPool) -> Result<(), sqlx::Error> {
         let res = sqlx::query!(
-            "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+            "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id",
             self.name,
             self.email,
             self.password
         )
-        .execute(pool)
+        .fetch_one(pool)
         .await?;
 
-        self.id = res.last_insert_id() as i64;
+        self.id = res.id;
 
         Ok(())
     }
 
     /// Update this user row in place.
-    pub async fn update(&self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
+    pub async fn update(&self, pool: &PgPool) -> Result<u64, sqlx::Error> {
         let updated = sqlx::query!(
-            "UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?",
+            "UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4",
             self.name,
             self.email,
             self.password,
@@ -42,10 +42,10 @@ impl User {
     }
 
     /// Fetches the user with the id from self.
-    pub async fn fetch(&self, pool: &MySqlPool) -> Result<Self, sqlx::Error> {
+    pub async fn fetch(&self, pool: &PgPool) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             User,
-            "SELECT id, name, email, password FROM users WHERE id = ?",
+            "SELECT id, name, email, password FROM users WHERE id = $1",
             self.id
         )
         .fetch_one(pool)
@@ -54,10 +54,10 @@ impl User {
     }
 
     /// Fetch a user by its ID.
-    pub async fn get(pool: &MySqlPool, id: i64) -> Result<Self, sqlx::Error> {
+    pub async fn get(pool: &PgPool, id: i64) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             User,
-            "SELECT id, name, email, password FROM users WHERE id = ?",
+            "SELECT id, name, email, password FROM users WHERE id = $1",
             id
         )
         .fetch_one(pool)
@@ -66,8 +66,8 @@ impl User {
     }
 
     /// Deletes the row associated with the record
-    pub async fn delete(&self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
-        let deleted = sqlx::query_as!(User, "DELETE FROM users WHERE id = ?", self.id)
+    pub async fn delete(&self, pool: &PgPool) -> Result<u64, sqlx::Error> {
+        let deleted = sqlx::query_as!(User, "DELETE FROM users WHERE id = $1", self.id)
             .execute(pool)
             .await?;
 

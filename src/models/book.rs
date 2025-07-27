@@ -1,5 +1,5 @@
 use derive_builder::Builder;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
 #[derive(Builder, PartialEq, Debug)]
 pub struct Book {
@@ -18,9 +18,13 @@ pub struct Book {
 
 impl Book {
     /// Insert book into the DB
-    pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
+    pub async fn create(&mut self, pool: &PgPool) -> Result<(), sqlx::Error> {
         let res = sqlx::query!(
-            "INSERT INTO books (title, author, isbn, published_year, description, cover_url, pages) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            r#"
+            INSERT INTO books (title, author, isbn, published_year, description, cover_url, pages)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+            "#,
             self.title,
             self.author,
             self.isbn,
@@ -29,18 +33,18 @@ impl Book {
             self.cover_url,
             self.pages,
         )
-        .execute(pool)
+        .fetch_one(pool)
         .await?;
 
-        self.id = res.last_insert_id() as i64;
+        self.id = res.id;
 
         Ok(())
     }
 
     /// Update book into the DB. Returns the number of updated rows on Ok.
-    pub async fn update(&mut self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
+    pub async fn update(&mut self, pool: &PgPool) -> Result<u64, sqlx::Error> {
         let updated = sqlx::query!(
-            "UPDATE books SET title = ?, author = ?, isbn = ?, published_year = ?, description = ?, cover_url = ?, pages = ? WHERE id = ?",
+            "UPDATE books SET title = $1, author = $2, isbn = $3, published_year = $4, description = $5, cover_url = $6, pages = $7 WHERE id = $8",
             self.title,
             self.author,
             self.isbn,
@@ -57,10 +61,10 @@ impl Book {
     }
 
     /// Fetches the book with the id from self.
-    pub async fn fetch(&self, pool: &MySqlPool) -> Result<Self, sqlx::Error> {
+    pub async fn fetch(&self, pool: &PgPool) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             Book,
-            "SELECT id, title, author, isbn, published_year, description, cover_url, pages FROM books WHERE id = ?",
+            "SELECT id, title, author, isbn, published_year, description, cover_url, pages FROM books WHERE id = $1",
             self.id
         )
         .fetch_one(pool)
@@ -69,10 +73,10 @@ impl Book {
     }
 
     /// Fetch a book by its ID.
-    pub async fn get(pool: &MySqlPool, id: i64) -> Result<Self, sqlx::Error> {
+    pub async fn get(pool: &PgPool, id: i64) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             Book,
-            "SELECT id, title, author, isbn, published_year, description, cover_url, pages  FROM books WHERE id = ?",
+            "SELECT id, title, author, isbn, published_year, description, cover_url, pages  FROM books WHERE id = $1",
             id
         )
         .fetch_one(pool)
@@ -82,8 +86,8 @@ impl Book {
     }
 
     /// Deletes the row associated with the record
-    pub async fn delete(&self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
-        let deleted = sqlx::query_as!(Book, "DELETE FROM books WHERE id = ?", self.id)
+    pub async fn delete(&self, pool: &PgPool) -> Result<u64, sqlx::Error> {
+        let deleted = sqlx::query_as!(Book, "DELETE FROM books WHERE id = $1", self.id)
             .execute(pool)
             .await?;
 

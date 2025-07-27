@@ -6,10 +6,10 @@ use crate::models::user::User;
 use chrono::{DateTime, Utc};
 use derive_builder::Builder;
 use fake::rand;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 
-#[derive(Debug, Clone, sqlx::Type, PartialEq)]
-#[sqlx(type_name = "ENUM")]
+#[derive(Debug, Clone, sqlx::Type, PartialEq, Copy)]
+#[sqlx(type_name = "reading_status")]
 pub enum ReadingStatus {
     #[sqlx(rename = "to-read")]
     ToRead,
@@ -17,17 +17,6 @@ pub enum ReadingStatus {
     Reading,
     #[sqlx(rename = "completed")]
     Completed,
-}
-
-impl From<String> for ReadingStatus {
-    fn from(s: String) -> Self {
-        match s.as_str() {
-            "to-read" => ReadingStatus::ToRead,
-            "reading" => ReadingStatus::Reading,
-            "completed" => ReadingStatus::Completed,
-            other => panic!("Invalid ReadingStatus from DB: {other}"),
-        }
-    }
 }
 
 impl fake::Dummy<fake::Faker> for ReadingStatus {
@@ -47,7 +36,7 @@ pub struct UserBook {
     #[builder(default = ReadingStatus::ToRead)]
     status: ReadingStatus,
     #[builder(default = None)]
-    rating: Option<u8>,
+    rating: Option<i16>,
     #[builder(default = Utc::now())]
     added_at: DateTime<Utc>,
     #[builder(default = None)]
@@ -55,17 +44,20 @@ pub struct UserBook {
     #[builder(default = None)]
     done_reading: Option<DateTime<Utc>>,
     #[builder(default = None)]
-    current_page: Option<u32>,
+    current_page: Option<i32>,
 }
 
 impl UserBook {
     /// Creates a new instance of `UserBook` and adds it to the database.
-    pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
+    pub async fn create(&mut self, pool: &PgPool) -> Result<(), sqlx::Error> {
         sqlx::query!(
-            "INSERT INTO user_books (user_id, book_id, status, rating, added_at, began_reading, done_reading, current_page) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            r#"
+            INSERT INTO user_books (user_id, book_id, status, rating, added_at, began_reading, done_reading, current_page)
+            VALUES ($1, $2, $3::reading_status, $4, $5, $6, $7, $8)
+            "#,
             self.user_id,
             self.book_id,
-            self.status,
+            self.status as ReadingStatus,
             self.rating,
             self.added_at,
             self.began_reading,
@@ -79,12 +71,16 @@ impl UserBook {
     }
 
     /// Synchronizes the information in the struct to the database.
-    pub async fn update(&mut self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
+    pub async fn update(&mut self, pool: &PgPool) -> Result<u64, sqlx::Error> {
         let updated = sqlx::query!(
-            "UPDATE user_books SET user_id = ?, book_id = ?, status = ?, rating = ?, added_at = ?, began_reading = ?, done_reading = ?, current_page = ? WHERE user_id = ? AND book_id = ?",
+            r#"
+            UPDATE user_books
+            SET user_id = $1, book_id = $2, status = $3::reading_status, rating = $4, added_at = $5, began_reading = $6, done_reading = $7, current_page = $8
+            WHERE user_id = $9 AND book_id = $10
+            "#,
             self.user_id,
             self.book_id,
-            self.status,
+            self.status as ReadingStatus,
             self.rating,
             self.added_at,
             self.began_reading,
@@ -100,10 +96,10 @@ impl UserBook {
     }
 
     /// Synchronizes the struct with the information in the database.
-    pub async fn fetch(&self, pool: &MySqlPool) -> Result<Self, sqlx::Error> {
+    pub async fn fetch(&self, pool: &PgPool) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             UserBook,
-            "SELECT user_id, book_id, status, rating, added_at, began_reading, done_reading, current_page FROM user_books WHERE book_id = ? AND user_id = ?",
+            "SELECT user_id, book_id, status as \"status: ReadingStatus\", rating, added_at, began_reading, done_reading, current_page FROM user_books WHERE book_id = $1 AND user_id = $2",
             self.book_id,
             self.user_id
         )
@@ -115,10 +111,10 @@ impl UserBook {
 
     /// Gets a specific `user_book` instance from the database given a `book_id`
     /// and `user_id`.
-    pub async fn get(pool: &MySqlPool, book_id: i64, user_id: i64) -> Result<Self, sqlx::Error> {
+    pub async fn get(pool: &PgPool, book_id: i64, user_id: i64) -> Result<Self, sqlx::Error> {
         let record = sqlx::query_as!(
             UserBook,
-            "SELECT user_id, book_id, status, rating, added_at, began_reading, done_reading, current_page FROM user_books WHERE book_id = ? AND user_id = ?",
+            "SELECT user_id, book_id, status as \"status: ReadingStatus\", rating, added_at, began_reading, done_reading, current_page FROM user_books WHERE book_id = $1 AND user_id = $2",
             book_id,
             user_id
         )
@@ -129,9 +125,9 @@ impl UserBook {
     }
 
     /// Deletes the row in the database associated with this instance.
-    pub async fn delete(&self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
+    pub async fn delete(&self, pool: &PgPool) -> Result<u64, sqlx::Error> {
         let deleted = sqlx::query!(
-            "DELETE FROM user_books WHERE user_id = ? AND book_id = ?",
+            "DELETE FROM user_books WHERE user_id = $1 AND book_id = $2",
             self.user_id,
             self.book_id
         )
@@ -142,10 +138,10 @@ impl UserBook {
     }
 
     /// Gets the user associated with this instance.
-    pub async fn get_user(&self, pool: &MySqlPool) -> Result<User, sqlx::Error> {
+    pub async fn get_user(&self, pool: &PgPool) -> Result<User, sqlx::Error> {
         let user = sqlx::query_as!(
             User,
-            "SELECT id, name, email, password FROM users WHERE id = ?",
+            "SELECT id, name, email, password FROM users WHERE id = $1",
             self.user_id
         )
         .fetch_one(pool)
@@ -155,10 +151,10 @@ impl UserBook {
     }
 
     /// Gets the book associated with this user.
-    pub async fn get_book(&self, pool: &MySqlPool) -> Result<Book, sqlx::Error> {
+    pub async fn get_book(&self, pool: &PgPool) -> Result<Book, sqlx::Error> {
         let book = sqlx::query_as!(
             Book,
-            "SELECT id, title, author, isbn, published_year, description, cover_url, pages FROM books WHERE id = ?",
+            "SELECT id, title, author, isbn, published_year, description, cover_url, pages FROM books WHERE id = $1",
             self.book_id
         )
             .fetch_one(pool)
