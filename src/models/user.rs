@@ -1,7 +1,9 @@
+use derive_builder::Builder;
 use sqlx::MySqlPool;
 
-#[derive(Debug)]
+#[derive(Debug, Builder)]
 pub struct User {
+    #[builder(default = 0)]
     pub id: i64,
     pub name: String,
     pub email: String,
@@ -9,15 +11,6 @@ pub struct User {
 }
 
 impl User {
-    /// Create a new instance of the `User` struct
-    pub fn new(id: i64, name: String, email: String, password: String) -> Self {
-        Self {
-            id,
-            name,
-            email,
-            password,
-        }
-    }
 
     /// Insert user into the DB
     pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
@@ -92,12 +85,12 @@ mod tests {
     async fn create_then_get_and_delete() {
         // Arrange
         let pool = setup_db().await;
-        let mut u = User::new(
-            0,
-            "Test".to_string(),
-            "a@create.com".to_string(),
-            "pw".to_string(),
-        );
+        let mut u = UserBuilder::default()
+            .name("Test".to_string())
+            .email("a@create.com".to_string())
+            .password("pw".to_string())
+            .build()
+            .unwrap();
 
         // Act
         u.create(&pool).await.unwrap();
@@ -125,12 +118,12 @@ mod tests {
     async fn update() {
         // Arrange
         let pool = setup_db().await;
-        let mut u = User::new(
-            0,
-            "Test".to_string(),
-            "a@update.com".to_string(),
-            "pw".to_string(),
-        );
+        let mut u = UserBuilder::default()
+            .name("Test".to_string())
+            .email("a@update.com".to_string())
+            .password("pw".to_string())
+            .build()
+            .unwrap();
 
         // Act
         u.create(&pool).await.unwrap();

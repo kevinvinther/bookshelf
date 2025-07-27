@@ -1,41 +1,22 @@
+use derive_builder::Builder;
 use sqlx::MySqlPool;
 
-#[derive(Debug)]
+#[derive(Builder)]
 pub struct Book {
+    #[builder(default = 0)]
     pub id: i64,
     pub title: String,
     pub author: String,
     pub isbn: String,
     pub published_year: i32,
+    #[builder(default = None)]
     pub description: Option<String>,
+    #[builder(default= None)]
     pub cover_url: Option<String>,
     pub pages: i32,
 }
 
 impl Book {
-    /// Create a new instance of the `Book` struct
-    pub fn new(
-        id: i64,
-        title: String,
-        author: String,
-        isbn: String,
-        published_year: i32,
-        description: Option<String>,
-        cover_url: Option<String>,
-        pages: i32,
-    ) -> Self {
-        Self {
-            id,
-            title,
-            author,
-            isbn,
-            published_year,
-            description,
-            cover_url,
-            pages,
-        }
-    }
-
     /// Insert book into the DB
     pub async fn create(&mut self, pool: &MySqlPool) -> Result<(), sqlx::Error> {
         let res = sqlx::query!(
@@ -59,7 +40,7 @@ impl Book {
     /// Update book into the DB. Returns the number of updated rows on Ok.
     pub async fn update(&mut self, pool: &MySqlPool) -> Result<u64, sqlx::Error> {
         let updated = sqlx::query!(
-            "UPDATE books SET title = ?, author = ?, isbn = ?, published_year = ?, description = ?, cover_url = ?, pages = ?",
+            "UPDATE books SET title = ?, author = ?, isbn = ?, published_year = ?, description = ?, cover_url = ?, pages = ? WHERE id = ?",
             self.title,
             self.author,
             self.isbn,
@@ -67,6 +48,7 @@ impl Book {
             self.description,
             self.cover_url,
             self.pages,
+            self.id
         )
         .execute(pool)
         .await?;
@@ -118,16 +100,16 @@ mod tests {
     async fn create_then_get_and_delete() {
         // Arrange
         let pool = setup_db().await;
-        let mut u = Book::new(
-            0,
-            "Crime and Punishment".to_string(),
-            "Fyodor Dostoevsky".to_string(),
-            "9780307829603".to_string(),
-            2012,
-            Some("FYODOR MIKAILOVICH DOSTOEVSKY's life was as dark and dramatic as the great novels he wrote. He was born in Moscow in 1821. A short first novel, Poor Folk (1846) brought him instant success, but his writing career was cut short by his arrest for alleged subversion against Tsar Nicholas I in 1849. In prison he was given the “silent treatment” for eight months (guards even wore velvet soled boots) before he was led in front a firing squad. Dressed in a death shroud, he faced an open grave and awaited execution, when suddenly, an order arrived commuting his sentence. He then spent four years at hard labor in a Siberian prison, where he began to suffer from epilepsy, and he returned to St. Petersburg only a full ten years after he had left in chains.\n His prison experiences coupled with his conversion to a profoundly religious philosophy formed the basis for his great novels. But it was his fortuitous marriage to Anna Snitkina, following a period of utter destitution brought about by his compulsive gambling, that gave Dostoevsky the emotional stability to complete Crime and Punishment (1866), The Idiot (1868-69), The Possessed (1871-72),and The Brothers Karamazov (1879-80). When Dostoevsky died in 1881, he left a legacy of masterworks that influenced the great thinkers and writers of the Western world and immortalized him as a giant among writers of world literature.".to_string()),
-            None,
-            592,
-        );
+        let mut u = BookBuilder::default()
+            .title("Crime and Punishment".to_string())
+            .author("Fyodor Dostoevsky".to_string())
+            .isbn("9780307829603".to_string())
+            .published_year(2012)
+            .description(Some("FYODOR MIKAILOVICH DOSTOEVSKY's life was as dark and dramatic as the great novels he wrote. He was born in Moscow in 1821. A short first novel, Poor Folk (1846) brought him instant success, but his writing career was cut short by his arrest for alleged subversion against Tsar Nicholas I in 1849. In prison he was given the “silent treatment” for eight months (guards even wore velvet soled boots) before he was led in front a firing squad. Dressed in a death shroud, he faced an open grave and awaited execution, when suddenly, an order arrived commuting his sentence. He then spent four years at hard labor in a Siberian prison, where he began to suffer from epilepsy, and he returned to St. Petersburg only a full ten years after he had left in chains.\n His prison experiences coupled with his conversion to a profoundly religious philosophy formed the basis for his great novels. But it was his fortuitous marriage to Anna Snitkina, following a period of utter destitution brought about by his compulsive gambling, that gave Dostoevsky the emotional stability to complete Crime and Punishment (1866), The Idiot (1868-69), The Possessed (1871-72),and The Brothers Karamazov (1879-80). When Dostoevsky died in 1881, he left a legacy of masterworks that influenced the great thinkers and writers of the Western world and immortalized him as a giant among writers of world literature.".to_string()))
+            .cover_url(None)
+            .pages(592)
+            .build()
+            .unwrap();
 
         // Act
         u.create(&pool).await.unwrap();
@@ -144,7 +126,6 @@ mod tests {
         assert_eq!(
             Some("FYODOR MIKAILOVICH DOSTOEVSKY's life was as dark and dramatic as the great novels he wrote. He was born in Moscow in 1821. A short first novel, Poor Folk (1846) brought him instant success, but his writing career was cut short by his arrest for alleged subversion against Tsar Nicholas I in 1849. In prison he was given the “silent treatment” for eight months (guards even wore velvet soled boots) before he was led in front a firing squad. Dressed in a death shroud, he faced an open grave and awaited execution, when suddenly, an order arrived commuting his sentence. He then spent four years at hard labor in a Siberian prison, where he began to suffer from epilepsy, and he returned to St. Petersburg only a full ten years after he had left in chains.\n His prison experiences coupled with his conversion to a profoundly religious philosophy formed the basis for his great novels. But it was his fortuitous marriage to Anna Snitkina, following a period of utter destitution brought about by his compulsive gambling, that gave Dostoevsky the emotional stability to complete Crime and Punishment (1866), The Idiot (1868-69), The Possessed (1871-72),and The Brothers Karamazov (1879-80). When Dostoevsky died in 1881, he left a legacy of masterworks that influenced the great thinkers and writers of the Western world and immortalized him as a giant among writers of world literature.".to_string()), fetched.description
         );
-        assert_eq!(None, fetched.cover_url);
         assert_eq!(592, fetched.pages);
 
         // Asserts the struct has the same values as the db
@@ -165,17 +146,16 @@ mod tests {
     async fn update() {
         // Arrange
         let pool = setup_db().await;
-        let mut u = Book::new(
-            0,
-            "Crime and Punishment".to_string(),
-            "Fyodor Dostoevsky".to_string(),
-            "9780307829603".to_string(),
-            2012,
-            Some("FYODOR MIKAILOVICH DOSTOEVSKY's life was as dark and dramatic as the great novels he wrote. He was born in Moscow in 1821. A short first novel, Poor Folk (1846) brought him instant success, but his writing career was cut short by his arrest for alleged subversion against Tsar Nicholas I in 1849. In prison he was given the “silent treatment” for eight months (guards even wore velvet soled boots) before he was led in front a firing squad. Dressed in a death shroud, he faced an open grave and awaited execution, when suddenly, an order arrived commuting his sentence. He then spent four years at hard labor in a Siberian prison, where he began to suffer from epilepsy, and he returned to St. Petersburg only a full ten years after he had left in chains.\n His prison experiences coupled with his conversion to a profoundly religious philosophy formed the basis for his great novels. But it was his fortuitous marriage to Anna Snitkina, following a period of utter destitution brought about by his compulsive gambling, that gave Dostoevsky the emotional stability to complete Crime and Punishment (1866), The Idiot (1868-69), The Possessed (1871-72),and The Brothers Karamazov (1879-80). When Dostoevsky died in 1881, he left a legacy of masterworks that influenced the great thinkers and writers of the Western world and immortalized him as a giant among writers of world literature.".to_string()),
-            None,
-            592,
-        );
-
+        let mut u = BookBuilder::default()
+            .title("Crime and Punishment".to_string())
+            .author("Fyodor Dostoevsky".to_string())
+            .isbn("9780307829604".to_string())
+            .published_year(2012)
+            .description(Some("FYODOR MIKAILOVICH DOSTOEVSKY's life was as dark and dramatic as the great novels he wrote. He was born in Moscow in 1821. A short first novel, Poor Folk (1846) brought him instant success, but his writing career was cut short by his arrest for alleged subversion against Tsar Nicholas I in 1849. In prison he was given the “silent treatment” for eight months (guards even wore velvet soled boots) before he was led in front a firing squad. Dressed in a death shroud, he faced an open grave and awaited execution, when suddenly, an order arrived commuting his sentence. He then spent four years at hard labor in a Siberian prison, where he began to suffer from epilepsy, and he returned to St. Petersburg only a full ten years after he had left in chains.\n His prison experiences coupled with his conversion to a profoundly religious philosophy formed the basis for his great novels. But it was his fortuitous marriage to Anna Snitkina, following a period of utter destitution brought about by his compulsive gambling, that gave Dostoevsky the emotional stability to complete Crime and Punishment (1866), The Idiot (1868-69), The Possessed (1871-72),and The Brothers Karamazov (1879-80). When Dostoevsky died in 1881, he left a legacy of masterworks that influenced the great thinkers and writers of the Western world and immortalized him as a giant among writers of world literature.".to_string()))
+            .pages(592)
+            .build()
+            .unwrap();
+        
         // Act
         u.create(&pool).await.unwrap();
         let fetched = Book::get(&pool, u.id).await.unwrap();
